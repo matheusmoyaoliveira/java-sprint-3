@@ -50,7 +50,7 @@ public class ConsultaService {
 
     public void concluir(long id) {
         ensureExists(id);
-        consultaRepo.updateStatus(id, StatusConsulta.REALIZADA);
+        consultaRepo.updateStatus(id, StatusConsulta.CONCLUIDA);
     }
 
     public void reagendar(long id, LocalDateTime novoHorario) {
