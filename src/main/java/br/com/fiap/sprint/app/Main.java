@@ -1,22 +1,31 @@
 package br.com.fiap.sprint.app;
 
-import br.com.fiap.sprint.domain.Paciente;
-import br.com.fiap.sprint.domain.Medico;
-import br.com.fiap.sprint.domain.Consulta;
+import br.com.fiap.sprint.domain.*;
 import br.com.fiap.sprint.repository.*;
-import br.com.fiap.sprint.service.*;
+import br.com.fiap.sprint.repository.ConsultaRepositoryJdbc;
+import br.com.fiap.sprint.repository.MedicoRepositoryJdbc;
+import br.com.fiap.sprint.repository.PacienteRepositoryJdbc;
+import br.com.fiap.sprint.service.ConsultaService;
+import br.com.fiap.sprint.service.MedicoService;
+import br.com.fiap.sprint.service.PacienteService;
+import br.com.fiap.sprint.util.ConsoleIO;
 import br.com.fiap.sprint.util.DbConnection;
 
-import static br.com.fiap.sprint.util.ConsoleIO.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 public class Main {
 
+
     private static final PacienteRepository pRepo = new PacienteRepositoryJdbc();
-    private static final MedicoRepository   mRepo = new MedicoRepositoryJdbc();
+    private static final MedicoRepository mRepo = new MedicoRepositoryJdbc();
     private static final ConsultaRepository cRepo = new ConsultaRepositoryJdbc();
 
+
     private static final PacienteService pService = new PacienteService(pRepo);
-    private static final MedicoService   mService = new MedicoService(mRepo);
+    private static final MedicoService mService = new MedicoService(mRepo);
     private static final ConsultaService cService = new ConsultaService(cRepo, pRepo, mRepo);
 
     public static void main(String[] args) {
@@ -24,127 +33,225 @@ public class Main {
         menuPrincipal();
     }
 
+
     private static void menuPrincipal() {
         while (true) {
-            System.out.println("\n=== HC - MENU PRINCIPAL ===");
+            System.out.println("=== HC - MENU PRINCIPAL ===");
             System.out.println("1) Pacientes");
             System.out.println("2) Médicos");
             System.out.println("3) Consultas");
             System.out.println("0) Sair");
-            String op = line("> ");
+            String op = ConsoleIO.line("> ");
+
             switch (op) {
                 case "1" -> menuPacientes();
                 case "2" -> menuMedicos();
                 case "3" -> menuConsultas();
-                case "0" -> { return; }
-                default -> System.out.println("Opção inválida.");
+                case "0" -> {
+                    return;
+                }
+                default -> {
+                    System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
+                }
             }
         }
     }
 
+
     private static void menuPacientes() {
         while (true) {
-            System.out.println("\n[Pacientes]");
+            System.out.println("[Pacientes]");
             System.out.println("1) Cadastrar");
             System.out.println("2) Listar");
             System.out.println("3) Buscar por CPF");
             System.out.println("4) Atualizar");
             System.out.println("5) Excluir");
             System.out.println("0) Voltar");
-            String op = line("> ");
-            try {
-                switch (op) {
-                    case "1" -> {
-                        Paciente p = new Paciente();
-                        p.setNome(line("Nome: "));
-                        p.setCpf(line("CPF: "));
-                        p.setDataNascimento(
-                                java.time.LocalDate.parse(
-                                        line("Data nasc (dd/MM/yyyy): "),
-                                        java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
-                                )
-                        );
-                        p.setTelefone(line("Telefone: "));
-                        p.setEmail(line("Email: "));
+            String op = ConsoleIO.line("> ");
+
+            switch (op) {
+                case "1" -> { // Cadastrar
+                    Paciente p = new Paciente();
+                    p.setNome(ConsoleIO.line("Nome: "));
+                    p.setCpf(ConsoleIO.line("CPF: "));
+                    LocalDate dn = ConsoleIO.date("Data nasc (dd/MM/yyyy): ");
+                    p.setDataNascimento(dn);
+                    p.setTelefone(ConsoleIO.line("Telefone: "));
+                    p.setEmail(ConsoleIO.line("Email: "));
+                    try {
                         pService.create(p);
                         System.out.println("Criado: " + p);
-                        pause();
+                    } catch (Exception e) {
+                        System.out.println("Erro ao salvar paciente: " + e.getMessage());
                     }
-                    case "2" -> { pService.listAll().forEach(System.out::println); pause(); }
-                    case "3" -> { System.out.println(pRepo.findByCpf(line("CPF: ")).orElse(null)); pause(); }
-                    case "4" -> {
-                        long id = long_("ID do paciente: ");
-                        var pOpt = pRepo.findById(id);
-                        if (pOpt.isEmpty()) { System.out.println("Não encontrado."); pause(); break; }
-                        var p = pOpt.get();
-                        var nome = line("Nome [" + p.getNome() + "]: ");         if (!nome.isBlank()) p.setNome(nome);
-                        var cpf  = line("CPF [" + p.getCpf() + "]: ");           if (!cpf.isBlank())  p.setCpf(cpf);
-                        var tel  = line("Telefone [" + p.getTelefone() + "]: "); if (!tel.isBlank())  p.setTelefone(tel);
-                        var mail = line("Email [" + p.getEmail() + "]: ");       if (!mail.isBlank()) p.setEmail(mail);
+                    ConsoleIO.pause();
+                }
+                case "2" -> {
+                    List<Paciente> lista = pService.listAll();
+                    if (lista.isEmpty()) {
+                        System.out.println("Nenhum paciente cadastrado.");
+                    } else {
+                        lista.forEach(System.out::println);
+                    }
+                    ConsoleIO.pause();
+                }
+                case "3" -> {
+                    String cpf = ConsoleIO.line("CPF: ");
+                    Optional<Paciente> opt = pRepo.findByCpf(cpf);
+                    System.out.println(opt.orElse(null));
+                    ConsoleIO.pause();
+                }
+                case "4" -> {
+                    long id = ConsoleIO.long_("ID do paciente: ");
+                    Optional<Paciente> pOpt = pRepo.findById(id);
+                    if (pOpt.isEmpty()) {
+                        System.out.println("Não encontrado.");
+                        ConsoleIO.pause();
+                        break;
+                    }
+                    Paciente p = pOpt.get();
+                    String nome = ConsoleIO.line("Nome [" + p.getNome() + "]: ");
+                    if (!nome.isBlank()) p.setNome(nome);
+
+                    String cpf = ConsoleIO.line("CPF [" + p.getCpf() + "]: ");
+                    if (!cpf.isBlank()) p.setCpf(cpf);
+
+                    String tel = ConsoleIO.line("Telefone [" + p.getTelefone() + "]: ");
+                    if (!tel.isBlank()) p.setTelefone(tel);
+
+                    String email = ConsoleIO.line("Email [" + p.getEmail() + "]: ");
+                    if (!email.isBlank()) p.setEmail(email);
+
+                    try {
                         pService.update(p);
                         System.out.println("Atualizado.");
-                        pause();
+                    } catch (Exception e) {
+                        System.out.println("Erro ao atualizar paciente: " + e.getMessage());
                     }
-                    case "5" -> { pService.delete(long_("ID: ")); System.out.println("Excluído."); pause(); }
-                    case "0" -> { return; }
-                    default -> System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
                 }
-            } catch (Exception e) {
-                System.out.println("Erro: " + e.getMessage());
-                pause();
+                case "5" -> { // Excluir
+                    long id = ConsoleIO.long_("ID: ");
+                    try {
+                        pService.delete(id);
+                        System.out.println("Excluído.");
+                    } catch (Exception e) {
+                        System.out.println("Erro ao excluir paciente: " + e.getMessage());
+                    }
+                    ConsoleIO.pause();
+                }
+                case "0" -> {
+                    return;
+                }
+                default -> {
+                    System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
+                }
             }
         }
     }
 
+
     private static void menuMedicos() {
         while (true) {
-            System.out.println("\n[Médicos]");
+            System.out.println("[Médicos]");
             System.out.println("1) Cadastrar");
             System.out.println("2) Listar");
             System.out.println("3) Buscar por CRM");
             System.out.println("4) Atualizar");
             System.out.println("5) Excluir");
             System.out.println("0) Voltar");
-            String op = line("> ");
-            try {
-                switch (op) {
-                    case "1" -> {
-                        Medico m = new Medico();
-                        m.setNome(line("Nome: "));
-                        m.setCrm(line("CRM: "));
-                        m.setEspecialidade(line("Especialidade: "));
-                        m.setTelefone(line("Telefone: "));
-                        m.setEmail(line("Email: "));
+            String op = ConsoleIO.line("> ");
+
+            switch (op) {
+                case "1" -> {
+                    Medico m = new Medico();
+                    m.setNome(ConsoleIO.line("Nome: "));
+                    m.setCrm(ConsoleIO.line("CRM: "));
+                    m.setEspecialidade(ConsoleIO.line("Especialidade: "));
+                    m.setTelefone(ConsoleIO.line("Telefone: "));
+                    m.setEmail(ConsoleIO.line("Email: "));
+                    try {
                         mService.create(m);
                         System.out.println("Criado: " + m);
-                        pause();
+                    } catch (Exception e) {
+                        System.out.println("Erro ao salvar médico: " + e.getMessage());
                     }
-                    case "2" -> { mService.listAll().forEach(System.out::println); pause(); }
-                    case "3" -> { System.out.println(mRepo.findByCrm(line("CRM: ")).orElse(null)); pause(); }
-                    case "4" -> {
-                        long id = long_("ID do médico: ");
-                        var mOpt = mRepo.findById(id);
-                        if (mOpt.isEmpty()) { System.out.println("Não encontrado."); pause(); break; }
-                        var m = mOpt.get();
-                        var nome = line("Nome [" + m.getNome() + "]: ");         if (!nome.isBlank()) m.setNome(nome);
-                        var tel  = line("Telefone [" + m.getTelefone() + "]: "); if (!tel.isBlank())  m.setTelefone(tel);
-                        var mail = line("Email [" + m.getEmail() + "]: ");       if (!mail.isBlank()) m.setEmail(mail);
-                        var esp  = line("Especialidade [" + m.getEspecialidade() + "]: "); if (!esp.isBlank()) m.setEspecialidade(esp);
+                    ConsoleIO.pause();
+                }
+                case "2" -> {
+                    List<Medico> lista = mService.listAll();
+                    if (lista.isEmpty()) {
+                        System.out.println("Nenhum médico cadastrado.");
+                    } else {
+                        lista.forEach(System.out::println);
+                    }
+                    ConsoleIO.pause();
+                }
+                case "3" -> {
+                    String crm = ConsoleIO.line("CRM: ");
+                    System.out.println(mRepo.findByCrm(crm).orElse(null));
+                    ConsoleIO.pause();
+                }
+                case "4" -> { // Atualizar
+                    long id = ConsoleIO.long_("ID do médico: ");
+                    Optional<Medico> mOpt = mRepo.findById(id);
+                    if (mOpt.isEmpty()) {
+                        System.out.println("Não encontrado.");
+                        ConsoleIO.pause();
+                        break;
+                    }
+                    Medico m = mOpt.get();
+
+                    String nome = ConsoleIO.line("Nome [" + m.getNome() + "]: ");
+                    if (!nome.isBlank()) m.setNome(nome);
+
+                    String crm = ConsoleIO.line("CRM [" + m.getCrm() + "]: ");
+                    if (!crm.isBlank()) m.setCrm(crm);
+
+                    String esp = ConsoleIO.line("Especialidade [" + m.getEspecialidade() + "]: ");
+                    if (!esp.isBlank()) m.setEspecialidade(esp);
+
+                    String tel = ConsoleIO.line("Telefone [" + m.getTelefone() + "]: ");
+                    if (!tel.isBlank()) m.setTelefone(tel);
+
+                    String email = ConsoleIO.line("Email [" + m.getEmail() + "]: ");
+                    if (!email.isBlank()) m.setEmail(email);
+
+                    try {
                         mService.update(m);
                         System.out.println("Atualizado.");
-                        pause();
+                    } catch (Exception e) {
+                        System.out.println("Erro ao atualizar médico: " + e.getMessage());
                     }
-                    case "5" -> { mService.delete(long_("ID: ")); System.out.println("Excluído."); pause(); }
-                    case "0" -> { return; }
-                    default -> System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
                 }
-            } catch (Exception e) { System.out.println("Erro: " + e.getMessage()); pause(); }
+                case "5" -> {
+                    long id = ConsoleIO.long_("ID: ");
+                    try {
+                        mService.delete(id);
+                        System.out.println("Excluído.");
+                    } catch (Exception e) {
+                        System.out.println("Erro ao excluir médico: " + e.getMessage());
+                    }
+                    ConsoleIO.pause();
+                }
+                case "0" -> {
+                    return;
+                }
+                default -> {
+                    System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
+                }
+            }
         }
     }
 
+
     private static void menuConsultas() {
         while (true) {
-            System.out.println("\n[Consultas]");
+            System.out.println("[Consultas]");
             System.out.println("1) Agendar");
             System.out.println("2) Listar");
             System.out.println("3) Cancelar");
@@ -152,38 +259,87 @@ public class Main {
             System.out.println("5) Reagendar");
             System.out.println("6) Excluir");
             System.out.println("0) Voltar");
-            String op = line("> ");
-            try {
-                switch (op) {
-                    case "1" -> {
-                        long pacienteId = long_("Paciente ID: ");
-                        long medicoId   = long_("Médico ID: ");
-                        var dh  = dateTime("Data/hora (dd/MM/yyyy HH:mm): ");
-                        var obs = line("Observações: ");
-                        Consulta c = new Consulta();
-                        c.setPacienteId(pacienteId);
-                        c.setMedicoId(medicoId);
-                        c.setDataHora(dh);
-                        c.setObservacoes(obs);
+            String op = ConsoleIO.line("> ");
+
+            switch (op) {
+                case "1" -> {
+                    long pacienteId = ConsoleIO.long_("Paciente ID: ");
+                    long medicoId = ConsoleIO.long_("Médico ID: ");
+                    LocalDateTime dh = ConsoleIO.dateTime("Data/hora (dd/MM/yyyy HH:mm): ");
+                    String obs = ConsoleIO.line("Observações: ");
+
+                    Consulta c = new Consulta();
+                    c.setPacienteId(pacienteId);
+                    c.setMedicoId(medicoId);
+                    c.setDataHora(dh);
+                    c.setObservacoes(obs);
+
+                    try {
                         cService.agendar(c);
                         System.out.println("Agendada: " + c);
-                        pause();
+                    } catch (Exception e) {
+                        System.out.println("Erro: " + e.getMessage());
                     }
-                    case "2" -> { cService.listar().forEach(System.out::println); pause(); }
-                    case "3" -> { cService.cancelar(long_("ID da consulta: ")); System.out.println("Cancelada."); pause(); }
-                    case "4" -> { cService.concluir(long_("ID da consulta: ")); System.out.println("Concluída."); pause(); }
-                    case "5" -> {
-                        long id = long_("ID da consulta: ");
-                        var nova = dateTime("Nova data/hora (dd/MM/yyyy HH:mm): ");
+                    ConsoleIO.pause();
+                }
+                case "2" -> {
+                    List<Consulta> lista = cService.listar();
+                    if (lista.isEmpty()) {
+                        System.out.println("Nenhuma consulta cadastrada.");
+                    } else {
+                        lista.forEach(System.out::println);
+                    }
+                    ConsoleIO.pause();
+                }
+                case "3" -> {
+                    long id = ConsoleIO.long_("ID da consulta: ");
+                    try {
+                        cService.cancelar(id);
+                        System.out.println("Cancelada.");
+                    } catch (Exception e) {
+                        System.out.println("Erro: " + e.getMessage());
+                    }
+                    ConsoleIO.pause();
+                }
+                case "4" -> {
+                    long id = ConsoleIO.long_("ID da consulta: ");
+                    try {
+                        cService.concluir(id);
+                        System.out.println("Concluída.");
+                    } catch (Exception e) {
+                        System.out.println("Erro: " + e.getMessage());
+                    }
+                    ConsoleIO.pause();
+                }
+                case "5" -> {
+                    long id = ConsoleIO.long_("ID da consulta: ");
+                    LocalDateTime nova = ConsoleIO.dateTime("Nova data/hora (dd/MM/yyyy HH:mm): ");
+                    try {
                         cService.reagendar(id, nova);
                         System.out.println("Reagendada.");
-                        pause();
+                    } catch (Exception e) {
+                        System.out.println("Erro: " + e.getMessage());
                     }
-                    case "6" -> { cService.excluir(long_("ID da consulta: ")); System.out.println("Excluída."); pause(); }
-                    case "0" -> { return; }
-                    default -> System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
                 }
-            } catch (Exception e) { System.out.println("Erro: " + e.getMessage()); pause(); }
+                case "6" -> {
+                    long id = ConsoleIO.long_("ID da consulta: ");
+                    try {
+                        cService.excluir(id);
+                        System.out.println("Excluída.");
+                    } catch (Exception e) {
+                        System.out.println("Erro: " + e.getMessage());
+                    }
+                    ConsoleIO.pause();
+                }
+                case "0" -> {
+                    return;
+                }
+                default -> {
+                    System.out.println("Opção inválida.");
+                    ConsoleIO.pause();
+                }
+            }
         }
     }
 }
